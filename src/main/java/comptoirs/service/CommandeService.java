@@ -106,10 +106,30 @@ public class CommandeService {
      */
     @Transactional
     public Ligne ajouterLigne(int commandeNum, int produitRef, @Positive int quantite) {
-        // TODO : implémenter cette méthode
-        throw new UnsupportedOperationException("Pas encore implémenté");
-    }
+    
+        // On vérifie que la commande existe et qu'elle n'est pas envoyée
+        var commande = commandeDao.findById(commandeNum).orElseThrow();
+        if (commande.getEnvoyeele() != null) {
+            throw new IllegalStateException("la commande est déjà envoyé");
+        }
+        // On vérifie que le produit existe et qu'il est disponible
+        var produit = produitDao.findById(produitRef).orElseThrow();
+        if (produit.isIndisponible()) {
+            throw new IllegalStateException("le produit est indisponible ");
+        }
+        // On récupère la quantité en stock et on vérifie qu'lle est ps négative
+        var nbArticles = produit.getUnitesEnStock();
 
+        // On ajoute une ligne à la commande en vérifiant que la quantité commandée est disponible
+        if (nbArticles >= quantite) {
+            var ligne = new Ligne(commande, produit, quantite);
+            return ligne;
+        } else {
+            throw new IllegalStateException("Il n'y a pas assez de stock");
+        }
+        
+
+    }
     /**
      * Service métier : Enregistre l'expédition d'une commande connue par sa clé
      * Règles métier :
@@ -130,7 +150,20 @@ public class CommandeService {
      */
     @Transactional
     public Commande enregistreExpedition(int commandeNum) {
-        // TODO : implémenter cette méthode
-        throw new UnsupportedOperationException("Pas encore implémenté");
+
+        var commande = commandeDao.findById(commandeNum).orElseThrow();
+        if (commande.getEnvoyeele() != null) {
+            throw new IllegalStateException("la commande est déjà envoyé");
+        }
+        commande.setEnvoyeele(LocalDate.now());
+        for (Ligne l : commande.getLignes()){
+            var p = l.getProduit();
+            p.setUnitesEnStock(l.getProduit().getUnitesEnStock() - l.getQuantite());
+            p.setUnitesCommandees(l.getProduit().getUnitesCommandees() - l.getQuantite());
+        }
+        return commande;
+
+
     }
 }
+
